@@ -3,31 +3,67 @@ import pickle
 import re
 import sklearn
 
-# 1. إعدادات الصفحة
+# إعدادات الصفحة
 st.set_page_config(page_title="نظام تصنيف البلاغات", page_icon="🤖")
 
-# 2. كود الـ CSS لجعل الشكل "صندوق" ولون الزر الأخضر
+# كود CSS المطور لتحسين الشكل
 st.markdown("""
     <style>
-    /* تنسيق الحاوية (الصندوق) */
+    /* خلفية الصفحة */
+    .stApp { background-color: #f0f2f6; }
+    
+    /* الحاوية الرئيسية */
     .main-box {
-        border: 1px solid #e6e6e6;
-        padding: 20px;
-        border-radius: 10px;
-        background-color: #f9f9f9;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+        background-color: #ffffff;
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        margin-top: 20px;
     }
-    /* جعل الزر باللون الأخضر */
-    div.stButton > button:first-child {
+    
+    /* تنسيق العنوان */
+    .title-text { color: #1e1e1e; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 10px; }
+    
+    /* تنسيق النص الفرعي */
+    .subtitle-text { color: #666; text-align: center; margin-bottom: 30px; font-size: 15px; }
+    
+    /* تنسيق مربع النص */
+    .stTextArea textarea {
+        border-radius: 12px;
+        border: 2px solid #e0e0e0;
+        font-size: 16px;
+        padding: 10px;
+    }
+    
+    /* تحسين الزر */
+    div.stButton > button {
         background-color: #28a745 !important;
         color: white !important;
-        font-weight: bold;
-        width: 100%;
+        border-radius: 10px !important;
+        height: 50px !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        border: none !important;
+        width: 100% !important;
+        transition: 0.3s !important;
     }
+    div.stButton > button:hover { background-color: #218838 !important; transform: scale(1.02); }
+    
+    /* مربع النتيجة */
+    .result-box {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        border: 1px solid #c3e6cb;
+        margin-top: 20px;
+        animation: fadeIn 0.5s;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. تحميل النماذج (نفس منطقك)
+# المنطق البرمجي (النماذج)
 class CustomUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         if module == 'sklearn.linear_model._logistic':
@@ -36,44 +72,28 @@ class CustomUnpickler(pickle.Unpickler):
 
 @st.cache_resource
 def load_models():
-    with open('model.pkl', 'rb') as f:
-        model = CustomUnpickler(f).load()
-    with open('vectorizer.pkl', 'rb') as f:
-        vectorizer = CustomUnpickler(f).load()
+    with open('model.pkl', 'rb') as f: model = CustomUnpickler(f).load()
+    with open('vectorizer.pkl', 'rb') as f: vectorizer = CustomUnpickler(f).load()
     return model, vectorizer
 
 model, vectorizer = load_models()
 
-# 4. الواجهة داخل "صندوق"
-with st.container():
-    st.markdown('<div class="main-box">', unsafe_allow_html=True)
-    
-    st.markdown("<h2 style='text-align: center;'>نظام تصنيف البلاغات الذكي 🤖</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>أدخل نص الشكوى أو البلاغ ليقوم النموذج بتحديد التصنيف المناسب تلقائياً.</p>", unsafe_allow_html=True)
-    
-    complaint_input = st.text_area("", placeholder="هنا اكتب نص الشكوى...")
-    
-    if st.button("تصنيف البلاغ الحالي"):
-        if complaint_input:
-            # معالجة النص
-            cleaned = re.sub(r'[^\w\s]', '', complaint_input)
-            cleaned = re.sub(r'[\d\u0660-\u0669]+', '', cleaned).strip()
-            
-            vectorized_text = vectorizer.transform([cleaned])
-            prediction_numeric = int(model.predict(vectorized_text)[0])
-            
-            # القاموس
-            category_map = {
-                0: "إنارة", 1: "الإنارة", 2: "التشوه البصري", 3: "الحدائق", 4: "الصيانة",
-                5: "الطرق", 6: "المرور", 7: "النظافة", 8: "تشوه بصري", 9: "تصريف الأمطار",
-                10: "حدائق", 11: "حفريات", 12: "طرق", 13: "مبانٍ قابلة للسقوط", 14: "نظافة"
-            }
-            
-            prediction_text = category_map.get(prediction_numeric, f"قسم رقم {prediction_numeric}")
-            
-            st.write("التصنيف المتوقع بواسطة النموذج:")
-            st.success(prediction_text)
-        else:
-            st.warning("يرجى إدخال نص الشكوى أولاً.")
-            
-    st.markdown('</div>', unsafe_allow_html=True)
+# واجهة المستخدم
+st.markdown('<div class="main-box">', unsafe_allow_html=True)
+st.markdown('<p class="title-text">نظام تصنيف البلاغات الذكي 🤖</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle-text">أدخل تفاصيل البلاغ ليقوم الذكاء الاصطناعي بتصنيفه</p>', unsafe_allow_html=True)
+
+user_input = st.text_area("", placeholder="مثال: هناك حفرة في الطريق تحتاج صيانة...")
+
+if st.button("تصنيف البلاغ الحالي"):
+    if user_input:
+        cleaned = re.sub(r'[^\w\s]', '', user_input)
+        vec = vectorizer.transform([cleaned])
+        pred = int(model.predict(vec)[0])
+        
+        cats = {0: "إنارة", 1: "الإنارة", 2: "التشوه البصري", 3: "الحدائق", 4: "الصيانة", 5: "الطرق", 6: "المرور", 7: "النظافة", 8: "تشوه بصري", 9: "تصريف الأمطار", 10: "حدائق", 11: "حفريات", 12: "طرق", 13: "مبانٍ قابلة للسقوط", 14: "نظافة"}
+        
+        st.markdown(f'<div class="result-box">التصنيف المتوقع:<br><b style="font-size: 22px;">{cats.get(pred)}</b></div>', unsafe_allow_html=True)
+    else:
+        st.warning("الرجاء كتابة نص البلاغ!")
+st.markdown('</div>', unsafe_allow_html=True)
