@@ -10,7 +10,6 @@ category_map = {
     10: "حدائق", 11: "حفريات", 12: "طرق", 13: "مبانٍ قابلة للسقوط", 14: "نظافة"
 }
 
-# كلاس التحميل الخاص بك
 class CustomUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         if module == 'sklearn.linear_model._logistic':
@@ -34,18 +33,19 @@ def clean_text(text):
     return text.strip()
 
 # واجهة المستخدم
-st.title("نظام تصنيف الشكاوى")
+st.title("نظام تصنيف البلاغات الذكي 🤖")
+st.write("أدخل نص الشكوى أو البلاغ ليقوم النموذج بتحديد التصنيف المناسب تلقائياً.")
 
-complaint_input = st.text_input("أدخل نص الشكوى هنا:")
+complaint_input = st.text_area("", placeholder="هنا اكتب نص الشكوى...")
 
-if st.button("تصنيف"):
+if st.button("تصنيف البلاغ الحالي"):
     if complaint_input:
         cleaned = clean_text(complaint_input)
         vectorized_text = vectorizer.transform([cleaned])
         prediction_numeric = int(model.predict(vectorized_text)[0])
         prediction_text = category_map.get(prediction_numeric, f"قسم رقم {prediction_numeric}")
         
-        st.write("### النتيجة:")
+        st.write("التصنيف المتوقع بواسطة النموذج:")
         st.success(prediction_text)
     else:
-        st.error("يرجى إدخال نص للشكوى!")
+        st.error("يرجى إدخال نص الشكوى أولاً!")
