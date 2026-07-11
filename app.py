@@ -7,7 +7,7 @@ import time
 # إعدادات الصفحة
 st.set_page_config(page_title="نظام التصنيف الذكي", layout="centered")
 
-# CSS المطور
+# CSS لتصميم احترافي
 st.markdown("""
     <style>
     .card { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
@@ -16,50 +16,56 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# (ضع هنا دوال التحميل CustomUnpickler كما في الكود السابق)
+# القاموس (تأكد أن هذا هو نفس الترتيب الذي استخدمته في الـ LabelEncoder عند التدريب)
+category_map = {
+    0: "إنارة", 1: "الإنارة", 2: "التشوه البصري", 3: "الحدائق", 4: "الصيانة",
+    5: "الطرق", 6: "المرور", 7: "النظافة", 8: "تشوه بصري", 9: "تصريف الأمطار",
+    10: "حدائق", 11: "حفريات", 12: "طرق", 13: "مبانٍ قابلة للسقوط", 14: "نظافة"
+}
 
-# واجهة التطبيق
+class CustomUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if module == 'sklearn.linear_model._logistic':
+            return super().find_class('sklearn.linear_model', name)
+        return super().find_class(module, name)
+
+@st.cache_resource
+def load_models():
+    with open('model.pkl', 'rb') as f: model = CustomUnpickler(f).load()
+    with open('vectorizer.pkl', 'rb') as f: vectorizer = CustomUnpickler(f).load()
+    return model, vectorizer
+
+model, vectorizer = load_models()
+
+def clean_text(text):
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'[\d\u0660-\u0669]+', '', text)
+    return text.strip()
+
+# الواجهة
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.title("🤖 نظام التصنيف الذكي")
 
-# 1. إحصائيات سريعة (Dashboard Widget)
-col1, col2 = st.columns(2)
-col1.metric("إجمالي البلاغات", "142")
-col2.metric("دقة النموذج", "94%")
-
-st.markdown("---")
-
-# 2. حقل الإدخال مع أمثلة
-user_input = st.text_area("نص البلاغ", placeholder="مثال: هناك عمود إنارة مكسور في شارع العليا...")
+user_input = st.text_area("نص البلاغ", placeholder="اكتب تفاصيل البلاغ هنا...")
 
 if st.button("تحليل وتصنيف البلاغ 🚀"):
     if user_input:
-        # 3. شريط التحميل (Progress Simulation)
-        with st.spinner('جاري تحليل البلاغ باستخدام الذكاء الاصطناعي...'):
-            time.sleep(1.5) # محاكاة وقت المعالجة
+        with st.spinner('جاري التحليل...'):
+            cleaned = clean_text(user_input)
+            vec = vectorizer.transform([cleaned])
             
-            # (هنا يتم استدعاء الموديل وتوقع النتيجة)
-            prediction = "حفريات" 
-            confidence = "92.5%"
+            # التنبؤ
+            pred_index = int(model.predict(vec)[0])
             
-            # 4. عرض النتيجة باحترافية
-            st.success(f"✅ التصنيف: {prediction}")
-            st.info(f"📊 درجة ثقة النموذج: {confidence}")
+            # --- أداة الفحص (لحل مشكلة التصنيف الخاطئ) ---
+            with st.expander("🛠️ أداة فحص الموديل (للمطور)"):
+                st.write("النص بعد التنظيف:", cleaned)
+                st.write("الرقم الذي توقعه الموديل:", pred_index)
+            # ---------------------------------------------
             
-            # 5. زر التصدير
-            st.download_button(
-                label="تصدير النتيجة كـ JSON",
-                data=f'{{"category": "{prediction}", "confidence": "{confidence}"}}',
-                file_name='result.json',
-                mime='application/json'
-            )
+            prediction = category_map.get(pred_index, "غير معروف")
+            
+            st.success(f"✅ التصنيف المتوقع: {prediction}")
     else:
-        st.warning("يرجى كتابة نص البلاغ للبدء.")
-
+        st.warning("يرجى كتابة نص البلاغ!")
 st.markdown('</div>', unsafe_allow_html=True)
-
-# 6. إضافة Sidebar للتعليمات
-with st.sidebar:
-    st.header("حول النظام")
-    st.write("نظام متطور يعتمد على تقنيات التعلم الآلي لتصنيف بلاغات البلدية تلقائياً.")
-    st.info("نصيحة: حاول كتابة البلاغ بوضوح للحصول على نتائج أدق.")
