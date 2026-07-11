@@ -69,3 +69,27 @@ if st.button("تحليل وتصنيف البلاغ 🚀"):
     else:
         st.warning("يرجى كتابة نص البلاغ!")
 st.markdown('</div>', unsafe_allow_html=True)
+
+# مثال لتصميم لوحة التدقيق
+with st.sidebar:
+    st.subheader("⚙️ إعدادات المدقق")
+    confidence_level = st.slider("درجة الثقة الدنيا", 0.5, 1.0, 0.8)
+    show_details = st.checkbox("عرض التفاصيل الفنية")
+
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    user_input = st.text_area("نص البلاغ المراد تدقيقه:", height=200)
+
+with col2:
+    st.subheader("نتائج التدقيق")
+    if st.button("بدء التدقيق"):
+        # محاكاة حالة العمل
+        with st.status("جاري التدقيق...", expanded=True) as status:
+            st.write("تنظيف النص...")
+            time.sleep(1)
+            st.write("تحليل المعطيات...")
+            time.sleep(1)
+            status.update(label="تم التصنيف بنجاح!", state="complete")
+        
+        st.metric("التصنيف", "حفريات", "98%")
