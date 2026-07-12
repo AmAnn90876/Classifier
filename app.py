@@ -1,11 +1,9 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import pickle
 import re
-import sklearn
 
 app = Flask(__name__)
 
-# القاموس الفعلي والمطابق لنتائج الـ LabelEncoder في مشروعكِ
 category_map = {
     0: "إنارة",
     1: "الإنارة",
@@ -26,50 +24,48 @@ category_map = {
 
 class CustomUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
-        if module == 'sklearn.linear_model._logistic':
-            return super().find_class('sklearn.linear_model', name)
+        if module == "sklearn.linear_model._logistic":
+            module = "sklearn.linear_model"
         return super().find_class(module, name)
 
-try:
-    with open('model.pkl', 'rb') as f:
-        model = CustomUnpickler(f).load()
-    with open('vectorizer.pkl', 'rb') as f:
-        vectorizer = CustomUnpickler(f).load()
-    print("✨ تم تحميل النموذج والـ Vectorizer بنجاح!")
-except Exception as e:
-    print(f"❌ حدث خطأ أثناء تحميل الملفات: {e}")
+with open("model.pkl", "rb") as f:
+    model = CustomUnpickler(f).load()
+
+with open("vectorizer.pkl", "rb") as f:
+    vectorizer = CustomUnpickler(f).load()
+
 
 def clean_text(text):
-    text = re.sub(r'[^\w\s]', '', text)
-    text = re.sub(r'[\d\u0660-\u0669]+', '', text)
+    text = re.sub(r"[^\w\s]", "", text)
+    text = re.sub(r"[\d\u0660-\u0669]+", "", text)
     return text.strip()
 
-@app.route('/')
-def home():
-    return render_template('index.html')
 
-@app.route('/predict', methods=['POST'])
+@app.route("/")
+def home():
+    return send_from_directory(".", "index.html")
+
+
+@app.route("/predict", methods=["POST"])
 def predict():
     try:
         data = request.get_json()
-        complaint_text = data.get('complaint', '')
-        
-        if not complaint_text:
-            return jsonify({'error': 'النص فارغ'})
-        
-        cleaned = clean_text(complaint_text)
-        vectorized_text = vectorizer.transform([cleaned])
-        
-        # الحصول على التنبؤ الرقمي من الموديل
-        prediction_numeric = int(model.predict(vectorized_text)[0])
-        
-        # تحويل الرقم إلى النص العربي المطابق تماماً
-        prediction_text = category_map.get(prediction_numeric, f"قسم رقم {prediction_numeric}")
-        
-        return jsonify({'category': prediction_text})
-    except Exception as e:
-        return jsonify({'error': str(e)})
 
-if __name__ == '__main__':
-    print("🚀 جاري تشغيل السيرفر على الرابط المحلي...")
-    app.run(debug=True)
+        text = data["complaint"]
+
+        cleaned = clean_text(text)
+
+        vector = vectorizer.transform([cleaned])
+
+        prediction = int(model.predict(vector)[0])
+
+        category = category_map.get(prediction, "غير معروف")
+
+        return jsonify({"category": category})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
