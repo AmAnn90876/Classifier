@@ -1,26 +1,27 @@
-import streamlit as st
+from flask import Flask, render_template, request, jsonify
 import pickle
 import re
 import sklearn
-import time
 
-# إعدادات الصفحة
-st.set_page_config(page_title="نظام التصنيف الذكي", layout="centered")
+app = Flask(__name__)
 
-# CSS لتصميم احترافي
-st.markdown("""
-    <style>
-    .card { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-    .stApp { background-color: #f8f9fa; }
-    div.stButton > button { width: 100%; border-radius: 50px; background: linear-gradient(135deg, #4fd1c5, #38b2ac); color: white; font-weight: bold; }
-    </style>
-""", unsafe_allow_html=True)
-
-# القاموس (تأكد أن هذا هو نفس الترتيب الذي استخدمته في الـ LabelEncoder عند التدريب)
+# القاموس الفعلي والمطابق لنتائج الـ LabelEncoder في مشروعكِ
 category_map = {
-    0: "إنارة", 1: "الإنارة", 2: "التشوه البصري", 3: "الحدائق", 4: "الصيانة",
-    5: "الطرق", 6: "المرور", 7: "النظافة", 8: "تشوه بصري", 9: "تصريف الأمطار",
-    10: "حدائق", 11: "حفريات", 12: "طرق", 13: "مبانٍ قابلة للسقوط", 14: "نظافة"
+    0: "إنارة",
+    1: "الإنارة",
+    2: "التشوه البصري",
+    3: "الحدائق",
+    4: "الصيانة",
+    5: "الطرق",
+    6: "المرور",
+    7: "النظافة",
+    8: "تشوه بصري",
+    9: "تصريف الأمطار",
+    10: "حدائق",
+    11: "حفريات",
+    12: "طرق",
+    13: "مبانٍ قابلة للسقوط",
+    14: "نظافة"
 }
 
 class CustomUnpickler(pickle.Unpickler):
@@ -29,43 +30,46 @@ class CustomUnpickler(pickle.Unpickler):
             return super().find_class('sklearn.linear_model', name)
         return super().find_class(module, name)
 
-@st.cache_resource
-def load_models():
-    with open('model.pkl', 'rb') as f: model = CustomUnpickler(f).load()
-    with open('vectorizer.pkl', 'rb') as f: vectorizer = CustomUnpickler(f).load()
-    return model, vectorizer
-
-model, vectorizer = load_models()
+try:
+    with open('model.pkl', 'rb') as f:
+        model = CustomUnpickler(f).load()
+    with open('vectorizer.pkl', 'rb') as f:
+        vectorizer = CustomUnpickler(f).load()
+    print("✨ تم تحميل النموذج والـ Vectorizer بنجاح!")
+except Exception as e:
+    print(f"❌ حدث خطأ أثناء تحميل الملفات: {e}")
 
 def clean_text(text):
     text = re.sub(r'[^\w\s]', '', text)
     text = re.sub(r'[\d\u0660-\u0669]+', '', text)
     return text.strip()
 
-# الواجهة
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.title("🤖 نظام التصنيف الذكي")
+@app.route('/')
+def home():
+    return render_template('index.html')
 
-user_input = st.text_area("نص البلاغ", placeholder="اكتب تفاصيل البلاغ هنا...")
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        data = request.get_json()
+        complaint_text = data.get('complaint', '')
+        
+        if not complaint_text:
+            return jsonify({'error': 'النص فارغ'})
+        
+        cleaned = clean_text(complaint_text)
+        vectorized_text = vectorizer.transform([cleaned])
+        
+        # الحصول على التنبؤ الرقمي من الموديل
+        prediction_numeric = int(model.predict(vectorized_text)[0])
+        
+        # تحويل الرقم إلى النص العربي المطابق تماماً
+        prediction_text = category_map.get(prediction_numeric, f"قسم رقم {prediction_numeric}")
+        
+        return jsonify({'category': prediction_text})
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
-if st.button("تحليل وتصنيف البلاغ 🚀"):
-    if user_input:
-        with st.spinner('جاري التحليل...'):
-            cleaned = clean_text(user_input)
-            vec = vectorizer.transform([cleaned])
-            
-            # التنبؤ
-            pred_index = int(model.predict(vec)[0])
-            
-            # --- أداة الفحص (لحل مشكلة التصنيف الخاطئ) ---
-            with st.expander("🛠️ أداة فحص الموديل (للمطور)"):
-                st.write("النص بعد التنظيف:", cleaned)
-                st.write("الرقم الذي توقعه الموديل:", pred_index)
-            # ---------------------------------------------
-            
-            prediction = category_map.get(pred_index, "غير معروف")
-            
-            st.success(f"✅ التصنيف المتوقع: {prediction}")
-    else:
-        st.warning("يرجى كتابة نص البلاغ!")
-st.markdown('</div>', unsafe_allow_html=True)
+if __name__ == '__main__':
+    print("🚀 جاري تشغيل السيرفر على الرابط المحلي...")
+    app.run(debug=True)
